@@ -95,7 +95,6 @@ func setTest(w http.ResponseWriter, r *http.Request) {
 func handleButton(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery) {
 	// Извлечь данные обратного вызова
 	data := callback.Data
-	// p(4, " ~ ", PL, data)
 	switch {
 	case strings.HasPrefix(data, "paging_"):
 		commandParams := strings.Split(data, "_")
@@ -202,8 +201,6 @@ func setStartCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message, user *conf
 
 	msgArr, pagingBool, markup := config.GetTodoList(user.ID, 1, config.PAGE_SIZE, "paging")
 
-	p(6, " ~ ", PL, pagingBool)
-
 	msg := tgbotapi.NewMessage(message.Chat.ID, strings.Join(msgArr, NS+NS))
 	if pagingBool {
 		msg.ReplyMarkup = &markup
@@ -241,9 +238,12 @@ func setDefaultMessage(bot *tgbotapi.BotAPI, message *tgbotapi.Message, user *co
 	chat, _ := bot.GetChat(ch)
 
 	if chat.PinnedMessage != nil && chat.PinnedMessage.MessageID > 0 {
-		p(4, " / ", chat.PinnedMessage.MessageID)
-		edit := tgbotapi.NewEditMessageText(message.Chat.ID, chat.PinnedMessage.MessageID, "👍👍👍")
-		// edit.ReplyMarkup = &markup
+		msgArr, pagingBool, markup := config.GetTodoList(user.ID, 1, config.PAGE_SIZE, "paging")
+
+		edit := tgbotapi.NewEditMessageText(message.Chat.ID, chat.PinnedMessage.MessageID, strings.Join(msgArr, NS+NS))
+		if pagingBool {
+			edit.ReplyMarkup = &markup
+		}
 		bot.Send(edit)
 	}
 }

@@ -95,51 +95,30 @@ func setTest(w http.ResponseWriter, r *http.Request) {
 func handleButton(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery) {
 	// Извлечь данные обратного вызова
 	data := callback.Data
-	p(4, " ~ ", PL, data)
+	// p(4, " ~ ", PL, data)
 	switch {
 	case strings.HasPrefix(data, "paging_"):
-		// paging_previous_%d_%d
 		commandParams := strings.Split(data, "_")
 		if len(commandParams) < 4 {
 			return
 		}
 
-		page, _ := strconv.Atoi(commandParams[3])
-		p := int(page)
+		p, _ := strconv.Atoi(commandParams[3])
+		uid, _ := strconv.Atoi(commandParams[2])
+		u := uint(uid)
 
-		uid64, _ := strconv.Atoi(commandParams[2])
-		u := uint(uid64)
-
-		pageSize := 5
-		tds, count, page, pagingBool := config.GetTodoList(u, p, pageSize)
-
-		var msgArr []string
-		if count > 0 {
-			msgArr = config.GetViewList(tds)
-		} else {
-			msgArr = config.GetEmptyList()
-		}
+		msgArr, pagingBool, markup := config.GetTodoList(u, p, config.PAGE_SIZE, "paging")
 
 		// Ответить на запрос обратного вызова
 		callbackMess := tgbotapi.NewCallback(callback.ID, config.GetCallbackTitle(commandParams[1]))
 		bot.Request(callbackMess)
 
 		// Опционально — отредактировать сообщение, чтобы отразить выбор
-		var markup tgbotapi.InlineKeyboardMarkup
+		edit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, strings.Join(msgArr, NS+NS))
 		if pagingBool {
-			pageCount, previous, nexts := config.GetButtonPaging(int(count), page, pageSize)
-			b := fmt.Sprintf("%d / %d 👆", page, pageCount)
-			markup = tgbotapi.NewInlineKeyboardMarkup(
-				tgbotapi.NewInlineKeyboardRow(
-					tgbotapi.NewInlineKeyboardButtonData("👈", fmt.Sprintf("paging_previous_%d_%d", u, previous)),
-					tgbotapi.NewInlineKeyboardButtonData(b, fmt.Sprintf("paging_page_%d_%d", u, page)),
-					tgbotapi.NewInlineKeyboardButtonData("👉", fmt.Sprintf("paging_next_%d_%d", u, nexts)),
-				),
-			)
+			edit.ReplyMarkup = &markup
 		}
 
-		edit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, strings.Join(msgArr, NS+NS))
-		edit.ReplyMarkup = &markup
 		bot.Send(edit)
 
 	case strings.HasPrefix(data, "sending_"):
@@ -170,7 +149,7 @@ func handleButton(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery) {
 
 func handleMessage(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 
-	p(2, " → ", PL, message.Chat.UserName, message.Chat.ID, message.Text, message.Chat.PinnedMessage)
+	p(2, " → ", PL, message.Chat.UserName, message.Chat.ID, message.Text)
 
 	// ~~~ add user DB
 	userName := message.From.UserName
@@ -220,29 +199,14 @@ func setSettingsCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message, user *c
 
 // command start
 func setStartCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message, user *config.User) {
-	pageSize := 5
-	tds, count, page, pagingBool := config.GetTodoList(user.ID, 1, pageSize)
 
-	p(6, " ~ ", PL, count, page, pagingBool)
+	msgArr, pagingBool, markup := config.GetTodoList(user.ID, 1, config.PAGE_SIZE, "paging")
 
-	var msgArr []string
-	if count > 0 {
-		msgArr = config.GetViewList(tds)
-	} else {
-		msgArr = config.GetEmptyList()
-	}
+	p(6, " ~ ", PL, pagingBool)
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, strings.Join(msgArr, NS+NS))
 	if pagingBool {
-		pageCount, previous, nexts := config.GetButtonPaging(int(count), page, pageSize)
-		b := fmt.Sprintf("%d / %d 👆", page, pageCount)
-		msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("👈", fmt.Sprintf("paging_previous_%d_%d", user.ID, previous)),
-				tgbotapi.NewInlineKeyboardButtonData(b, fmt.Sprintf("paging_page_%d_%d", user.ID, page)),
-				tgbotapi.NewInlineKeyboardButtonData("👉", fmt.Sprintf("paging_next_%d_%d", user.ID, nexts)),
-			),
-		)
+		msg.ReplyMarkup = &markup
 	}
 	mes, _ := bot.Send(msg)
 

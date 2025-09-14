@@ -2,11 +2,13 @@ package config
 
 import (
 	"bufio"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
 	"strings"
 
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -21,6 +23,7 @@ var URL_BOT string
 var DB_DSN string
 var DB *gorm.DB
 var DEBUG bool = false
+var PAGE_SIZE int = 5
 
 type User struct {
 	ID      uint   `gorm:"primarykey"`
@@ -64,6 +67,10 @@ func init() {
 
 		if strings.Contains(s, "DEBUG=") {
 			DEBUG, _ = strconv.ParseBool(strings.ReplaceAll(s, "DEBUG=", ""))
+		}
+
+		if strings.Contains(s, "PAGE_SIZE=") {
+			PAGE_SIZE, _ = strconv.Atoi(strings.ReplaceAll(s, "PAGE_SIZE=", ""))
 		}
 	}
 
@@ -121,7 +128,7 @@ func AddTodo(us *User, Text string) Todo {
 	return td
 }
 
-func GetTodoList(uid uint, page int, pageSize int) ([]Todo, int64, int, bool) {
+func GetTodoList(uid uint, page int, pageSize int, prefix string) ([]string, bool, tgbotapi.InlineKeyboardMarkup) {
 	var count int64
 	var tds []Todo
 
@@ -130,5 +137,27 @@ func GetTodoList(uid uint, page int, pageSize int) ([]Todo, int64, int, bool) {
 	offset := (page - 1) * pageSize
 	DB.Where("user_id = ?", uid).Order("id DESC").Offset(offset).Limit(pageSize).Find(&tds)
 
-	return tds, count, page, count > int64(pageSize)
+	var msgArr []string
+	if count > 0 {
+		msgArr = GetViewList(tds)
+	} else {
+		msgArr = GetEmptyList()
+	}
+
+	pagingBool := count > int64(pageSize)
+
+	var markup tgbotapi.InlineKeyboardMarkup
+	if pagingBool {
+		pageCount, previous, nexts := GetButtonPaging(int(count), page, pageSize)
+		b := fmt.Sprintf("%d / %d 👆", page, pageCount)
+		markup = tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("👈", fmt.Sprintf("%s_previous_%d_%d", prefix, uid, previous)),
+				tgbotapi.NewInlineKeyboardButtonData(b, fmt.Sprintf("%s_page_%d_%d", prefix, uid, page)),
+				tgbotapi.NewInlineKeyboardButtonData("👉", fmt.Sprintf("%s_next_%d_%d", prefix, uid, nexts)),
+			),
+		)
+	}
+
+	return msgArr, pagingBool, markup
 }

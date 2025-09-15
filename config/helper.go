@@ -72,7 +72,7 @@ func GetButtonPaging(count int, page int, pageSize int) (int, int, int) {
 	return pageCount, previous, nexts
 }
 
-func GetCallbackData(data string) (uint, bool, error) {
+func GetCallbackSending(data string) (uint, bool, error) {
 	commandParams := strings.Split(data, "_")
 	if len(commandParams) < 3 {
 		return 0, false, errors.New("command is not array")
@@ -89,6 +89,28 @@ func GetCallbackData(data string) (uint, bool, error) {
 	}
 
 	return uint(uid64), boolValue, err
+}
+
+func GetCallbackPaging(data string) (string, uint, int, error) {
+	commandParams := strings.Split(data, "_")
+	typeButton := commandParams[1]
+	if len(commandParams) < 4 {
+		return typeButton, 0, 0, errors.New("command is not array")
+	}
+
+	p, err := strconv.Atoi(commandParams[3])
+	if err != nil {
+		return typeButton, 0, 0, err
+	}
+
+	uid, err := strconv.Atoi(commandParams[2])
+	if err != nil {
+		return typeButton, 0, 0, err
+	}
+
+	u := uint(uid)
+
+	return typeButton, u, p, nil
 }
 
 func GetCallbackTitle(typeButton string) string {

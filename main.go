@@ -97,19 +97,15 @@ func handleButton(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery) {
 	data := callback.Data
 	switch {
 	case strings.HasPrefix(data, "paging_"):
-		commandParams := strings.Split(data, "_")
-		if len(commandParams) < 4 {
+		typeButton, u, p, err := config.GetCallbackPaging(data)
+		if err != nil {
 			return
 		}
-
-		p, _ := strconv.Atoi(commandParams[3])
-		uid, _ := strconv.Atoi(commandParams[2])
-		u := uint(uid)
 
 		msgArr, pagingBool, markup := config.GetTodoList(u, p, config.PAGE_SIZE, "paging")
 
 		// Ответить на запрос обратного вызова
-		callbackMess := tgbotapi.NewCallback(callback.ID, config.GetCallbackTitle(commandParams[1]))
+		callbackMess := tgbotapi.NewCallback(callback.ID, config.GetCallbackTitle(typeButton))
 		bot.Request(callbackMess)
 
 		// Опционально — отредактировать сообщение, чтобы отразить выбор
@@ -121,7 +117,7 @@ func handleButton(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery) {
 		bot.Send(edit)
 
 	case strings.HasPrefix(data, "sending_"):
-		uid, boolValue, err := config.GetCallbackData(data)
+		uid, boolValue, err := config.GetCallbackSending(data)
 		if err != nil {
 			return
 		}
@@ -147,9 +143,7 @@ func handleButton(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery) {
 }
 
 func handleMessage(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
-
 	p(2, " → ", PL, message.Chat.UserName, message.Chat.ID, message.Text)
-
 	// ~~~ add user DB
 	userName := message.From.UserName
 	if message.Chat.Type == "group" {
@@ -198,7 +192,6 @@ func setSettingsCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message, user *c
 
 // command start
 func setStartCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message, user *config.User) {
-
 	msgArr, pagingBool, markup := config.GetTodoList(user.ID, 1, config.PAGE_SIZE, "paging")
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, strings.Join(msgArr, NS+NS))
@@ -206,8 +199,6 @@ func setStartCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message, user *conf
 		msg.ReplyMarkup = &markup
 	}
 	mes, _ := bot.Send(msg)
-
-	p(5, " ~ ", PL, mes.MessageID, mes.Chat.ID, mes.From.UserName)
 
 	pin := tgbotapi.PinChatMessageConfig{
 		ChatID:              mes.Chat.ID,
@@ -265,8 +256,6 @@ func sendMessageEveryone(bot *tgbotapi.BotAPI) {
 func setCroneStarted(bot *tgbotapi.BotAPI) *cron.Cron {
 	c := cron.New(cron.WithSeconds())
 	// A job to run every 15 seconds ~ "*/15 * * * * *"
-	// A job to run at the start of every hour "0 0 * * * *"
-	// Часы (9:00, 12:00, 18:00, 22:00 UTC). ~ "0 0 9,12,18,22 * * *"
 	// A job to run every day at 07:30:00  "0 30 7 * * *"
 	// job hour every day "0 0 10,11,12,13,14,15,16,17,18,19 * * *"
 	c.AddFunc("0 0 10,11,12,13,14,15,16,17,18,19 * * *", func() {
